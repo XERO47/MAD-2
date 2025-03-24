@@ -6,9 +6,9 @@ http://localhost:5000/api
 ```
 
 ## Authentication
-All API endpoints except registration and login require JWT authentication. Include the JWT token in the Authorization header:
+The API uses JWT (JSON Web Token) for authentication. Include the token in the Authorization header:
 ```
-Authorization: Bearer <your_jwt_token>
+Authorization: Bearer <access_token>
 ```
 
 ## Endpoints
@@ -26,8 +26,8 @@ Request Body:
     "email": "user@example.com",
     "password": "password123",
     "full_name": "John Doe",
-    "qualification": "Bachelor's Degree",
-    "date_of_birth": "1990-01-01"
+    "qualification": "BSc Computer Science",
+    "date_of_birth": "1995-05-15"
 }
 ```
 
@@ -54,7 +54,7 @@ Request Body:
 Response (200 OK):
 ```json
 {
-    "access_token": "jwt_token_here",
+    "access_token": "eyJhbGc...",
     "user": {
         "id": 1,
         "email": "user@example.com",
@@ -80,7 +80,7 @@ Request Body:
 Response (200 OK):
 ```json
 {
-    "access_token": "jwt_token_here",
+    "access_token": "eyJhbGc...",
     "user": {
         "id": 1,
         "email": "admin@quizmaster.com",
@@ -100,8 +100,8 @@ POST /admin/subjects
 Request Body:
 ```json
 {
-    "name": "Mathematics",
-    "description": "Basic mathematics course"
+    "name": "Computer Science",
+    "description": "Fundamentals of Computer Science"
 }
 ```
 
@@ -109,8 +109,8 @@ Response (201 Created):
 ```json
 {
     "id": 1,
-    "name": "Mathematics",
-    "description": "Basic mathematics course"
+    "name": "Computer Science",
+    "description": "Fundamentals of Computer Science"
 }
 ```
 
@@ -124,12 +124,12 @@ Response (200 OK):
 [
     {
         "id": 1,
-        "name": "Mathematics",
-        "description": "Basic mathematics course",
+        "name": "Computer Science",
+        "description": "Fundamentals of Computer Science",
         "chapters": [
             {
                 "id": 1,
-                "name": "Algebra"
+                "name": "Data Structures"
             }
         ]
     }
@@ -144,8 +144,8 @@ POST /admin/chapters
 Request Body:
 ```json
 {
-    "name": "Algebra",
-    "description": "Basic algebraic concepts",
+    "name": "Data Structures",
+    "description": "Basic data structures",
     "subject_id": 1
 }
 ```
@@ -154,8 +154,8 @@ Response (201 Created):
 ```json
 {
     "id": 1,
-    "name": "Algebra",
-    "description": "Basic algebraic concepts",
+    "name": "Data Structures",
+    "description": "Basic data structures",
     "subject_id": 1
 }
 ```
@@ -169,16 +169,16 @@ Request Body:
 ```json
 {
     "chapter_id": 1,
-    "date_of_quiz": "2024-03-15 14:00:00",
-    "duration": 60,
-    "remarks": "Basic algebra quiz",
+    "date_of_quiz": "2025-03-25 10:00:00",
+    "duration": 30,
+    "remarks": "Basic data structures quiz",
     "questions": [
         {
-            "question_statement": "What is x + x?",
-            "option1": "2x",
-            "option2": "x²",
-            "option3": "x",
-            "option4": "0",
+            "question_statement": "What is the time complexity of accessing an element in an array?",
+            "option1": "O(1)",
+            "option2": "O(n)",
+            "option3": "O(log n)",
+            "option4": "O(n log n)",
             "correct_option": 1,
             "marks": 1
         }
@@ -191,9 +191,9 @@ Response (201 Created):
 {
     "id": 1,
     "chapter_id": 1,
-    "date_of_quiz": "2024-03-15 14:00:00",
-    "duration": 60,
-    "remarks": "Basic algebra quiz"
+    "date_of_quiz": "2025-03-25 10:00:00",
+    "duration": 30,
+    "remarks": "Basic data structures quiz"
 }
 ```
 
@@ -207,17 +207,17 @@ Response (200 OK):
 {
     "id": 1,
     "chapter_id": 1,
-    "date_of_quiz": "2024-03-15 14:00:00",
-    "duration": 60,
-    "remarks": "Basic algebra quiz",
+    "date_of_quiz": "2025-03-25 10:00:00",
+    "duration": 30,
+    "remarks": "Basic data structures quiz",
     "questions": [
         {
             "id": 1,
-            "question_statement": "What is x + x?",
-            "option1": "2x",
-            "option2": "x²",
-            "option3": "x",
-            "option4": "0",
+            "question_statement": "What is the time complexity of accessing an element in an array?",
+            "option1": "O(1)",
+            "option2": "O(n)",
+            "option3": "O(log n)",
+            "option4": "O(n log n)",
             "correct_option": 1,
             "marks": 1
         }
@@ -234,14 +234,79 @@ Response (200 OK):
 ```json
 [
     {
-        "id": 1,
+        "id": 2,
         "email": "user@example.com",
         "full_name": "John Doe",
-        "qualification": "Bachelor's Degree",
-        "date_of_birth": "1990-01-01",
-        "created_at": "2024-03-01 10:00:00"
+        "qualification": "BSc Computer Science",
+        "date_of_birth": "1995-05-15",
+        "created_at": "2025-03-24 13:03:04",
+        "is_blocked": false
     }
 ]
+```
+
+#### Get User Details
+```http
+GET /admin/users/{user_id}
+```
+
+Response (200 OK):
+```json
+{
+    "user_info": {
+        "id": 2,
+        "email": "user@example.com",
+        "full_name": "John Doe",
+        "qualification": "BSc Computer Science",
+        "date_of_birth": "1995-05-15",
+        "created_at": "2025-03-24 13:03:04",
+        "is_blocked": false
+    },
+    "quiz_attempts": [
+        {
+            "id": 1,
+            "quiz_id": 1,
+            "score": 1.0,
+            "start_time": "2025-03-24 13:03:12",
+            "end_time": "2025-03-24 13:03:13",
+            "quiz": {
+                "chapter": "Data Structures",
+                "subject": "Computer Science"
+            },
+            "answers": [
+                {
+                    "question_id": 1,
+                    "selected_option": 1,
+                    "is_correct": true,
+                    "question": {
+                        "statement": "What is the time complexity of accessing an element in an array?",
+                        "correct_option": 1,
+                        "marks": 1
+                    }
+                }
+            ]
+        }
+    ],
+    "statistics": {
+        "total_attempts": 1,
+        "average_score": 1.0,
+        "best_score": 1.0,
+        "worst_score": 1.0
+    }
+}
+```
+
+#### Toggle User Block Status
+```http
+POST /admin/users/{user_id}/block
+```
+
+Response (200 OK):
+```json
+{
+    "message": "User blocked successfully",
+    "is_blocked": true
+}
 ```
 
 ### User Routes
@@ -256,18 +321,18 @@ Response (200 OK):
 [
     {
         "id": 1,
-        "name": "Mathematics",
-        "description": "Basic mathematics course",
+        "name": "Computer Science",
+        "description": "Fundamentals of Computer Science",
         "chapters": [
             {
                 "id": 1,
-                "name": "Algebra",
+                "name": "Data Structures",
                 "quizzes": [
                     {
                         "id": 1,
-                        "date_of_quiz": "2024-03-15 14:00:00",
-                        "duration": 60,
-                        "remarks": "Basic algebra quiz"
+                        "date_of_quiz": "2025-03-25 10:00:00",
+                        "duration": 30,
+                        "remarks": "Basic data structures quiz"
                     }
                 ]
             }
@@ -286,17 +351,17 @@ Response (200 OK):
 {
     "id": 1,
     "chapter_id": 1,
-    "date_of_quiz": "2024-03-15 14:00:00",
-    "duration": 60,
-    "remarks": "Basic algebra quiz",
+    "date_of_quiz": "2025-03-25 10:00:00",
+    "duration": 30,
+    "remarks": "Basic data structures quiz",
     "questions": [
         {
             "id": 1,
-            "question_statement": "What is x + x?",
-            "option1": "2x",
-            "option2": "x²",
-            "option3": "x",
-            "option4": "0",
+            "question_statement": "What is the time complexity of accessing an element in an array?",
+            "option1": "O(1)",
+            "option2": "O(n)",
+            "option3": "O(log n)",
+            "option4": "O(n log n)",
             "marks": 1
         }
     ]
@@ -341,11 +406,11 @@ Response (200 OK):
         "id": 1,
         "quiz_id": 1,
         "score": 1,
-        "start_time": "2024-03-15 14:00:00",
-        "end_time": "2024-03-15 15:00:00",
+        "start_time": "2025-03-25 10:00:00",
+        "end_time": "2025-03-25 10:00:30",
         "quiz": {
-            "chapter": "Algebra",
-            "subject": "Mathematics"
+            "chapter": "Data Structures",
+            "subject": "Computer Science"
         }
     }
 ]
@@ -362,11 +427,11 @@ Response (200 OK):
     "id": 1,
     "quiz_id": 1,
     "score": 1,
-    "start_time": "2024-03-15 14:00:00",
-    "end_time": "2024-03-15 15:00:00",
+    "start_time": "2025-03-25 10:00:00",
+    "end_time": "2025-03-25 10:00:30",
     "quiz": {
-        "chapter": "Algebra",
-        "subject": "Mathematics"
+        "chapter": "Data Structures",
+        "subject": "Computer Science"
     },
     "answers": [
         {
@@ -374,7 +439,7 @@ Response (200 OK):
             "selected_option": 1,
             "is_correct": true,
             "question": {
-                "statement": "What is x + x?",
+                "statement": "What is the time complexity of accessing an element in an array?",
                 "correct_option": 1,
                 "marks": 1
             }
@@ -395,7 +460,7 @@ Response (200 OK):
     "average_score": 1.0,
     "subject_stats": [
         {
-            "subject": "Mathematics",
+            "subject": "Computer Science",
             "attempts": 1,
             "average_score": 1.0
         }
@@ -409,7 +474,7 @@ All endpoints may return the following error responses:
 ### 400 Bad Request
 ```json
 {
-    "error": "Error message describing the issue"
+    "error": "Invalid input data"
 }
 ```
 
@@ -437,39 +502,48 @@ All endpoints may return the following error responses:
 ## Notes for Frontend Implementation
 
 1. **Authentication Flow**:
-   - Store the JWT token in localStorage or sessionStorage after successful login
-   - Include the token in all subsequent API requests
-   - Handle token expiration (1 hour) by redirecting to login
+   - Store the JWT token securely (e.g., in HttpOnly cookies)
+   - Include the token in all subsequent requests
+   - Handle token expiration and refresh
 
-2. **Quiz Timer**:
-   - Implement a countdown timer based on the quiz duration
-   - Auto-submit the quiz when time expires
-   - Show remaining time to the user
+2. **User Block Status**:
+   - Check user's block status after login
+   - Show appropriate messages when a blocked user tries to access features
+   - Implement UI for admins to manage user block status
 
-3. **Quiz Navigation**:
+3. **Quiz Attempts**:
+   - Implement timer for quiz duration
+   - Handle auto-submission when time expires
+   - Show clear feedback for correct/incorrect answers after submission
+
+4. **Admin Dashboard**:
+   - Implement user management interface with:
+     - List of all users with block status
+     - Detailed view of user information and quiz attempts
+     - Block/unblock functionality
+   - Add sorting and filtering options for user list
+   - Show user statistics and performance metrics
+
+5. **Error Handling**:
+   - Display appropriate error messages to users
+   - Implement retry mechanisms for network failures
+   - Handle session expiration gracefully
+
+6. **Quiz Navigation**:
    - Allow users to navigate between questions
    - Save answers locally before submission
    - Show progress indicator
 
-4. **Error Handling**:
-   - Implement proper error handling for all API calls
-   - Show user-friendly error messages
-   - Handle network errors gracefully
-
-5. **Loading States**:
-   - Show loading indicators during API calls
-   - Implement skeleton loading for better UX
-
-6. **Form Validation**:
+7. **Form Validation**:
    - Implement client-side validation for all forms
    - Show validation errors inline
    - Prevent form submission if validation fails
 
-7. **Responsive Design**:
+8. **Responsive Design**:
    - Ensure the UI works well on both desktop and mobile
    - Implement proper spacing and layout for different screen sizes
 
-8. **Accessibility**:
+9. **Accessibility**:
    - Use semantic HTML elements
    - Include proper ARIA labels
    - Ensure keyboard navigation works

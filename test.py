@@ -211,6 +211,50 @@ def test_quiz_attempt():
     )
     print_response(response, "Quiz Attempt")
 
+def test_admin_user_management():
+    print("\n=== TESTING ADMIN USER MANAGEMENT ===")
+    
+    # First, login as admin
+    login_data = {
+        "email": "admin@quizmaster.com",
+        "password": "admin123"
+    }
+    response = requests.post(f"{BASE_URL}/auth/admin/login", json=login_data)
+    print_response(response, "Admin Login")
+    
+    if response.status_code != 200:
+        print("Admin login failed, exiting...")
+        return
+    
+    token = response.json()["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    
+    # Get all users
+    response = requests.get(f"{BASE_URL}/admin/users", headers=headers)
+    print_response(response, "Get All Users")
+    
+    if response.status_code != 200:
+        print("Failed to get users list, exiting...")
+        return
+    
+    users = response.json()
+    if not users:
+        print("No users found, exiting...")
+        return
+    
+    # Get detailed information for the first user
+    user_id = users[0]["id"]
+    response = requests.get(f"{BASE_URL}/admin/users/{user_id}", headers=headers)
+    print_response(response, "Get User Details")
+    
+    # Toggle user block status
+    response = requests.post(f"{BASE_URL}/admin/users/{user_id}/block", headers=headers)
+    print_response(response, "Toggle User Block Status")
+    
+    # Get updated user details
+    response = requests.get(f"{BASE_URL}/admin/users/{user_id}", headers=headers)
+    print_response(response, "Get Updated User Details")
+
 if __name__ == "__main__":
     print("Starting Quiz Master Simulation...")
     
@@ -222,3 +266,6 @@ if __name__ == "__main__":
     
     # Then test quiz attempt
     test_quiz_attempt()
+    
+    # Finally test admin user management
+    test_admin_user_management()
