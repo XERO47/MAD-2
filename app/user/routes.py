@@ -4,11 +4,13 @@ from app.models import User, Subject, Chapter, Quiz, Question, QuizAttempt, User
 from app import db
 from datetime import datetime
 from sqlalchemy import func
+from ..cache import cache_response, clear_cache_for_user, clear_quiz_cache
 
 user_bp = Blueprint('user', __name__)
 
 @user_bp.route('/subjects', methods=['GET'])
 @jwt_required()
+@cache_response(timeout=300)  # Cache for 5 minutes
 def get_subjects():
     subjects = Subject.query.all()
     return jsonify([{
@@ -29,6 +31,7 @@ def get_subjects():
 
 @user_bp.route('/quizzes/<int:quiz_id>', methods=['GET'])
 @jwt_required()
+@cache_response(timeout=300)  # Cache for 5 minutes
 def get_quiz(quiz_id):
     quiz = Quiz.query.get_or_404(quiz_id)
     return jsonify({
@@ -52,33 +55,38 @@ def get_quiz(quiz_id):
 @jwt_required()
 def attempt_quiz(quiz_id):
     user_id = get_jwt_identity()
-    quiz = Quiz.query.get_or_404(quiz_id)
+    user = User.query.get(user_id)
     
+    if user.is_blocked:
+        return jsonify({'error': 'Your account is blocked'}), 403
+        
+    quiz = Quiz.query.get_or_404(quiz_id)
     data = request.get_json()
-    if not data or 'answers' not in data:
-        return jsonify({'error': 'Answers are required'}), 400
     
     # Create quiz attempt
     attempt = QuizAttempt(
         user_id=user_id,
         quiz_id=quiz_id,
         start_time=datetime.utcnow(),
-        score=0
+        score=0  # Initialize with 0
     )
     db.session.add(attempt)
-    db.session.commit()
+    db.session.commit()  # Commit to get the attempt.id
     
-    # Process answers and calculate score
+    # Calculate score
     total_score = 0
+    total_marks = 0
+    
     for answer_data in data['answers']:
         question = Question.query.get(answer_data['question_id'])
-        if not question:
-            continue
-        
-        is_correct = question.correct_option == answer_data['selected_option']
+        if not question or question.quiz_id != quiz_id:
+            return jsonify({'error': 'Invalid question ID'}), 400
+            
+        total_marks += question.marks
+        is_correct = answer_data['selected_option'] == question.correct_option
         if is_correct:
             total_score += question.marks
-        
+            
         user_answer = UserAnswer(
             attempt_id=attempt.id,
             question_id=question.id,
@@ -91,18 +99,22 @@ def attempt_quiz(quiz_id):
     attempt.end_time = datetime.utcnow()
     db.session.commit()
     
+    # Clear cache for this quiz and user
+    clear_quiz_cache(quiz_id)
+    clear_cache_for_user(user_id)
+    
     return jsonify({
         'attempt_id': attempt.id,
         'score': total_score,
-        'total_questions': len(quiz.questions)
+        'total_marks': total_marks
     }), 201
 
 @user_bp.route('/attempts', methods=['GET'])
 @jwt_required()
+@cache_response(timeout=300)  # Cache for 5 minutes
 def get_attempts():
     user_id = get_jwt_identity()
     attempts = QuizAttempt.query.filter_by(user_id=user_id).order_by(QuizAttempt.start_time.desc()).all()
-    
     return jsonify([{
         'id': attempt.id,
         'quiz_id': attempt.quiz_id,
@@ -117,10 +129,10 @@ def get_attempts():
 
 @user_bp.route('/attempts/<int:attempt_id>', methods=['GET'])
 @jwt_required()
+@cache_response(timeout=300)  # Cache for 5 minutes
 def get_attempt_details(attempt_id):
     user_id = get_jwt_identity()
     attempt = QuizAttempt.query.filter_by(id=attempt_id, user_id=user_id).first_or_404()
-    
     return jsonify({
         'id': attempt.id,
         'quiz_id': attempt.quiz_id,
@@ -145,32 +157,47 @@ def get_attempt_details(attempt_id):
 
 @user_bp.route('/stats', methods=['GET'])
 @jwt_required()
-def get_user_stats():
+@cache_response(timeout=300)  # Cache for 5 minutes
+def get_stats():
     user_id = get_jwt_identity()
+    attempts = QuizAttempt.query.filter_by(user_id=user_id).all()
     
-    # Get total attempts and average score
-    stats = db.session.query(
-        func.count(QuizAttempt.id).label('total_attempts'),
-        func.avg(QuizAttempt.score).label('average_score')
-    ).filter(QuizAttempt.user_id == user_id).first()
+    if not attempts:
+        return jsonify({
+            'total_attempts': 0,
+            'average_score': 0,
+            'subject_stats': []
+        })
     
-    # Get subject-wise performance
-    subject_stats = db.session.query(
-        Subject.name,
-        func.count(QuizAttempt.id).label('attempts'),
-        func.avg(QuizAttempt.score).label('average_score')
-    ).join(Chapter, Chapter.subject_id == Subject.id)\
-     .join(Quiz, Quiz.chapter_id == Chapter.id)\
-     .join(QuizAttempt, QuizAttempt.quiz_id == Quiz.id)\
-     .filter(QuizAttempt.user_id == user_id)\
-     .group_by(Subject.name).all()
+    # Calculate overall statistics
+    total_attempts = len(attempts)
+    total_score = sum(attempt.score for attempt in attempts)
+    average_score = total_score / total_attempts
+    
+    # Calculate subject-wise statistics
+    subject_stats = {}
+    for attempt in attempts:
+        subject_name = attempt.quiz.chapter.subject.name
+        if subject_name not in subject_stats:
+            subject_stats[subject_name] = {
+                'attempts': 0,
+                'total_score': 0
+            }
+        subject_stats[subject_name]['attempts'] += 1
+        subject_stats[subject_name]['total_score'] += attempt.score
+    
+    # Format subject statistics
+    subject_stats_list = [
+        {
+            'subject': subject,
+            'attempts': stats['attempts'],
+            'average_score': stats['total_score'] / stats['attempts']
+        }
+        for subject, stats in subject_stats.items()
+    ]
     
     return jsonify({
-        'total_attempts': stats.total_attempts or 0,
-        'average_score': float(stats.average_score or 0),
-        'subject_stats': [{
-            'subject': stat.name,
-            'attempts': stat.attempts,
-            'average_score': float(stat.average_score or 0)
-        } for stat in subject_stats]
-    }), 200 
+        'total_attempts': total_attempts,
+        'average_score': average_score,
+        'subject_stats': subject_stats_list
+    }) 

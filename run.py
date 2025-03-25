@@ -1,8 +1,13 @@
+import os
+from dotenv import load_dotenv
 from app import create_app, db
 from app.models import User
 from werkzeug.security import generate_password_hash
 
-app = create_app()
+# Load environment variables from .env file
+load_dotenv()
+
+app = create_app(os.getenv('FLASK_ENV', 'development'))
 
 def init_db():
     with app.app_context():
@@ -20,7 +25,10 @@ def init_db():
             admin.set_password('admin123')  # Change this in production
             db.session.add(admin)
             db.session.commit()
+            print("Admin user created successfully!")
 
 if __name__ == '__main__':
+    print("Initializing database...")
     init_db()
+    print("Starting Flask application...")
     app.run(debug=True) 

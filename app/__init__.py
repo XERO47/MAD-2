@@ -1,66 +1,73 @@
-from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager
-from flask_jwt_extended import JWTManager
-from flask_mail import Mail
-from flask_caching import Cache
-from flask_migrate import Migrate
-from celery import Celery
 import os
 from datetime import timedelta
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
+from flask_jwt_extended import JWTManager
+from flask_cors import CORS
+from flask_migrate import Migrate
+from flask_mail import Mail
+from flask_caching import Cache
+from celery import Celery
+from .cache import cache
 
 # Initialize Flask extensions
 db = SQLAlchemy()
-login_manager = LoginManager()
 jwt = JWTManager()
 mail = Mail()
-cache = Cache(config={'CACHE_TYPE': 'redis', 'CACHE_REDIS_URL': 'redis://localhost:6379/0'})
 migrate = Migrate()
 celery = Celery()
 
-def create_app():
+def create_app(config_name='development'):
     app = Flask(__name__)
     
-    # Configuration
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
-    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///quiz_master.db')
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'jwt-secret-key')
-    app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=1)
-    
-    # Mail configuration
-    app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
-    app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 587))
-    app.config['MAIL_USE_TLS'] = True
-    app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
-    app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
-    
-    # Redis configuration
-    app.config['REDIS_URL'] = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+    # Load configuration
+    from config import config
+    app.config.from_object(config[config_name])
     
     # Initialize extensions
     db.init_app(app)
-    login_manager.init_app(app)
     jwt.init_app(app)
     mail.init_app(app)
-    cache.init_app(app)
     migrate.init_app(app, db)
+    cache.init_app(app)
     
     # Configure Celery
     celery.conf.update(app.config)
     
     # Register blueprints
-    from app.auth.routes import auth_bp
-    from app.admin.routes import admin_bp
-    from app.user.routes import user_bp
+    print("\nRegistering blueprints...")
     
-    # Register blueprints with URL prefixes
+    # Import and register blueprints
+    from .auth import auth_bp
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
+    print("Auth blueprint registered")
+    
+    from .admin.routes import admin_bp
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
+    print("Admin blueprint registered")
+    
+    from .user.routes import user_bp
     app.register_blueprint(user_bp, url_prefix='/api/user')
+    print("User blueprint registered")
     
     # Create database tables
     with app.app_context():
         db.create_all()
+        print("Database tables created")
+    
+    # Enable CORS
+    CORS(app)
+    print("CORS enabled")
+    
+    # Print registered routes for debugging
+    print("\nRegistered Routes:")
+    for rule in app.url_map.iter_rules():
+        print(f"{rule.endpoint}: {rule.methods} {rule.rule}")
+        
+    # Print auth routes specifically
+    print("\nAuth Routes:")
+    auth_routes = [rule for rule in app.url_map.iter_rules() if rule.endpoint.startswith('auth.')]
+    for rule in auth_routes:
+        print(f"- {rule.endpoint}: {rule.methods} {rule.rule}")
     
     return app 

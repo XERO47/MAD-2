@@ -12,6 +12,11 @@ def print_response(response, description):
         print("Response:", json.dumps(response.json(), indent=2))
     except:
         print("Response:", response.text)
+    print("-" * 80)
+
+def get_auth_headers(token):
+    """Helper function to get authorization headers"""
+    return {"Authorization": f"Bearer {token}"}
 
 def simulate_admin_workflow():
     print("\n=== ADMIN WORKFLOW SIMULATION ===")
@@ -29,7 +34,7 @@ def simulate_admin_workflow():
         return
     
     token = response.json()["access_token"]
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = get_auth_headers(token)
     
     # Create a subject
     subject_data = {
@@ -38,6 +43,11 @@ def simulate_admin_workflow():
     }
     response = requests.post(f"{BASE_URL}/admin/subjects", json=subject_data, headers=headers)
     print_response(response, "Create Subject")
+    
+    if response.status_code != 201:
+        print("Failed to create subject, exiting...")
+        return
+        
     subject_id = response.json()["id"]
     
     # Create a chapter
@@ -48,6 +58,11 @@ def simulate_admin_workflow():
     }
     response = requests.post(f"{BASE_URL}/admin/chapters", json=chapter_data, headers=headers)
     print_response(response, "Create Chapter")
+    
+    if response.status_code != 201:
+        print("Failed to create chapter, exiting...")
+        return
+        
     chapter_id = response.json()["id"]
     
     # Create a quiz
@@ -80,13 +95,18 @@ def simulate_admin_workflow():
     }
     response = requests.post(f"{BASE_URL}/admin/quizzes", json=quiz_data, headers=headers)
     print_response(response, "Create Quiz")
+    
+    if response.status_code != 201:
+        print("Failed to create quiz, exiting...")
+        return
+        
     quiz_id = response.json()["id"]
     
     # Get quiz details
     response = requests.get(f"{BASE_URL}/admin/quizzes/{quiz_id}", headers=headers)
     print_response(response, "Get Quiz Details")
     
-    # Get all users (should be empty initially)
+    # Get all users
     response = requests.get(f"{BASE_URL}/admin/users", headers=headers)
     print_response(response, "Get All Users")
     
@@ -106,6 +126,12 @@ def simulate_user_workflow():
     response = requests.post(f"{BASE_URL}/auth/register", json=register_data)
     print_response(response, "User Registration")
     
+    if response.status_code == 400 and "already registered" in response.json().get("error", ""):
+        print("User already registered, proceeding with login...")
+    elif response.status_code != 201:
+        print("User registration failed, exiting...")
+        return
+    
     # User login
     login_data = {
         "email": "testuser@example.com",
@@ -119,18 +145,25 @@ def simulate_user_workflow():
         return
     
     token = response.json()["access_token"]
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = get_auth_headers(token)
     
     # Get available subjects and quizzes
     response = requests.get(f"{BASE_URL}/user/subjects", headers=headers)
     print_response(response, "Get Available Subjects/Quizzes")
     
-    # Assuming we know the quiz ID from the admin workflow
-    quiz_id = 1
+    if response.status_code != 200:
+        print("Failed to get subjects, exiting...")
+        return
     
     # Get quiz details
+    quiz_id = 1  # Assuming we know the quiz ID from the admin workflow
     response = requests.get(f"{BASE_URL}/user/quizzes/{quiz_id}", headers=headers)
     print_response(response, "Get Quiz Details (User View)")
+    
+    if response.status_code != 200:
+        print("Failed to get quiz details, exiting...")
+        return
+        
     quiz_details = response.json()
     
     # Simulate quiz attempt
@@ -148,9 +181,18 @@ def simulate_user_workflow():
                             json=attempt_data, headers=headers)
     print_response(response, "Attempt Quiz")
     
+    if response.status_code != 201:
+        print("Failed to attempt quiz, exiting...")
+        return
+    
     # Get user's quiz attempts
     response = requests.get(f"{BASE_URL}/user/attempts", headers=headers)
     print_response(response, "Get User's Quiz Attempts")
+    
+    if response.status_code != 200 or not response.json():
+        print("Failed to get quiz attempts, exiting...")
+        return
+        
     attempt_id = response.json()[0]["id"]
     
     # Get attempt details
@@ -179,7 +221,7 @@ def test_quiz_attempt():
         return
     
     token = response.json()["access_token"]
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = get_auth_headers(token)
     
     # Get quiz details first to get question IDs
     quiz_id = 1
@@ -227,7 +269,7 @@ def test_admin_user_management():
         return
     
     token = response.json()["access_token"]
-    headers = {"Authorization": f"Bearer {token}"}
+    headers = get_auth_headers(token)
     
     # Get all users
     response = requests.get(f"{BASE_URL}/admin/users", headers=headers)
@@ -258,14 +300,22 @@ def test_admin_user_management():
 if __name__ == "__main__":
     print("Starting Quiz Master Simulation...")
     
-    # First simulate admin workflow to create data
-    simulate_admin_workflow()
-    
-    # Then simulate user workflow to interact with the data
-    simulate_user_workflow()
-    
-    # Then test quiz attempt
-    test_quiz_attempt()
-    
-    # Finally test admin user management
-    test_admin_user_management()
+    try:
+        # First simulate admin workflow to create data
+        simulate_admin_workflow()
+        
+        # Then simulate user workflow to interact with the data
+        simulate_user_workflow()
+        
+        # Then test quiz attempt
+        test_quiz_attempt()
+        
+        # Finally test admin user management
+        test_admin_user_management()
+        
+        print("\nAll tests completed successfully!")
+        
+    except requests.exceptions.ConnectionError:
+        print("\nError: Could not connect to the server. Make sure the Flask server is running.")
+    except Exception as e:
+        print(f"\nError: An unexpected error occurred: {str(e)}")

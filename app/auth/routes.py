@@ -1,12 +1,9 @@
-from flask import Blueprint, request, jsonify
+from flask import request, jsonify
 from flask_jwt_extended import create_access_token
 from app.models import User
 from app import db
 from datetime import datetime
 
-auth_bp = Blueprint('auth', __name__)
-
-@auth_bp.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
     
@@ -33,7 +30,6 @@ def register():
     
     return jsonify({'message': 'User registered successfully'}), 201
 
-@auth_bp.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
     
@@ -56,7 +52,6 @@ def login():
     
     return jsonify({'error': 'Invalid email or password'}), 401
 
-@auth_bp.route('/admin/login', methods=['POST'])
 def admin_login():
     data = request.get_json()
     
